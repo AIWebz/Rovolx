@@ -87,9 +87,11 @@ def test_reset_keeps_connection_settings():
 
 
 def test_empty_xdg_config_home_falls_back_to_home(monkeypatch, tmp_path):
+    from pathlib import Path
+
     from sbe_modifier import paths
     monkeypatch.delenv("SBE_MODIFIER_HOME")
     monkeypatch.setenv("XDG_CONFIG_HOME", "")
-    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     monkeypatch.setattr("sys.platform", "linux")
     assert paths.data_dir() == tmp_path / ".config" / "sbe-speed-strength"

@@ -38,7 +38,19 @@ with an empty body. Messages are limited to 1 KiB and topic names to 80 characte
 
 ## Install
 
-### Windows
+### Windows — no Python needed (recommended)
+
+1. Open the repository's **Releases** page and choose the pre-release
+   **"Steal And Break Eggs - Speed & Strength (Windows)"** (tag `speed-strength-latest`).
+2. Download **`SBESpeedStrength.exe`** and double-click it. There is nothing to install.
+3. If Windows SmartScreen says "Windows protected your PC", click **More info → Run anyway**.
+   This happens because the file is not code-signed.
+
+GitHub Actions builds the `.exe` on Windows
+(`.github/workflows/speed-strength-windows.yml`) every time the app changes. The
+workflow also checks that the `.exe` starts on a machine with Python removed from PATH.
+
+### Windows — from source (Python)
 
 1. Install Python 3.10 or newer, with Tcl/Tk (on by default):
    `winget install Python.Python.3.12`

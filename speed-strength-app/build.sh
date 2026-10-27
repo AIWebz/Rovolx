@@ -13,7 +13,7 @@ if [ "$(uname)" = "Linux" ] && [ -z "${DISPLAY:-}" ]; then
   command -v xvfb-run >/dev/null || fail "no display and xvfb-run missing (sudo apt install xvfb)"
   runner=(xvfb-run -a)
 fi
-${runner[@]+"${runner[@]}"} .venv/bin/python -m pytest -q || fail "tests failed; not building"
+${runner[@]+"${runner[@]}"} .venv/bin/python -m pytest -q -rs || fail "tests failed; not building"
 
 rm -rf build dist
 .venv/bin/python -m PyInstaller --noconfirm --distpath dist --workpath build packaging/sbe_speed_strength.spec \

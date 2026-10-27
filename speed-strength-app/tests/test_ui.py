@@ -96,7 +96,11 @@ def test_toggles_update_state(make_app):
     app.root.update()
     assert app.settings.speed_enabled is True
     assert app.speed.enabled_text.cget("text") == "ENABLED"
-    app.strength.switch.focus_set()
+    # Key events go to the focused window; on Windows the test window must be
+    # brought to the foreground first.
+    app.root.focus_force()
+    app.strength.switch.focus_force()
+    app.root.update()
     app.strength.switch.event_generate("<space>")
     app.root.update()
     assert app.settings.strength_enabled is True

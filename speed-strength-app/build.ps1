@@ -8,7 +8,7 @@ if (-not (Test-Path $venvPy)) { & (Join-Path $PSScriptRoot "setup.ps1") -Dev; if
 & $venvPy -m pip install -q -r requirements-dev.txt
 if ($LASTEXITCODE -ne 0) { Fail "installing build tools failed" }
 
-& $venvPy -m pytest -q
+& $venvPy -m pytest -q -rs
 if ($LASTEXITCODE -ne 0) { Fail "tests failed; not building" }
 
 Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
