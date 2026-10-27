@@ -61,7 +61,9 @@ def main(argv=None) -> int:
     if args.smoke_test:
         root.update()
         ok = root.winfo_viewable() and app.apply_button.winfo_ismapped()
-        print("SMOKE TEST", "PASSED" if ok else "FAILED", f"- state: {app.state.value}")
+        result = f"SMOKE TEST {'PASSED' if ok else 'FAILED'} - state: {app.state.value}"
+        print(result)  # no console in the windowed .exe, so it is logged as well
+        log.info(result)
         app.shutdown()
         return 0 if ok else 1
 
