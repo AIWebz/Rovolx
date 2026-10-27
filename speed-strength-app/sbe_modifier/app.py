@@ -29,7 +29,7 @@ def setup_logging(debug: bool = False):
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(prog="sbe-speed-strength", description=APP_NAME)
+    parser = argparse.ArgumentParser(prog="sbe-speed-money", description=APP_NAME)
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--debug", action="store_true", help="verbose logging")
     parser.add_argument("--smoke-test", action="store_true",
@@ -46,7 +46,7 @@ def main(argv=None) -> int:
         print("ERROR: Python's Tkinter GUI library is missing. See README > Troubleshooting.", file=sys.stderr)
         return 2
 
-    from sbe_modifier.ui import SpeedStrengthApp
+    from sbe_modifier.ui import SpeedMoneyApp
 
     settings_path = paths.settings_file()
     settings, warning = cfg.load(settings_path)
@@ -57,7 +57,7 @@ def main(argv=None) -> int:
         print(f"ERROR: cannot open a window ({exc}). Is a desktop session available?", file=sys.stderr)
         return 3
 
-    app = SpeedStrengthApp(root, settings, settings_path, log_path, warning)
+    app = SpeedMoneyApp(root, settings, settings_path, log_path, warning)
     if args.smoke_test:
         root.update()
         ok = root.winfo_viewable() and app.apply_button.winfo_ismapped()

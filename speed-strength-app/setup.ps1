@@ -38,7 +38,10 @@ if ($Dev) {
     if ($LASTEXITCODE -ne 0) { Fail "installing dev tools failed" }
 }
 
-$shortcutPath = Join-Path ([Environment]::GetFolderPath("Programs")) "Steal And Break Eggs - Speed & Strength.lnk"
+$programs = [Environment]::GetFolderPath("Programs")
+# Shortcut name used by version 1 (Speed & Strength).
+Remove-Item -Force (Join-Path $programs "Steal And Break Eggs - Speed & Strength.lnk") -ErrorAction SilentlyContinue
+$shortcutPath = Join-Path $programs "Steal And Break Eggs - Speed & Money.lnk"
 try {
     $shell = New-Object -ComObject WScript.Shell
     $link = $shell.CreateShortcut($shortcutPath)

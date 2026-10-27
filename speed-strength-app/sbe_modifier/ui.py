@@ -1,6 +1,7 @@
 """Main window. Owns no game logic: it edits AppSettings and calls a GameIntegration."""
 
 import logging
+import math
 import os
 import queue
 import threading
@@ -29,6 +30,7 @@ from sbe_modifier.widgets import (
     MUTED,
     RED,
     ScrollFrame,
+    StudBackground,
     ToggleSwitch,
     apply_theme,
 )
@@ -46,6 +48,7 @@ STATE_COLORS = {
 }
 WIDE_LAYOUT_MIN_WIDTH = 820
 POLL_MS = 80
+LOG_STEPS = 1000  # slider resolution for logarithmic ranges
 
 
 def wrap_to(label, container, pad: int = 0, minimum: int = 140) -> None:
@@ -83,34 +86,43 @@ class ModifierCard:
         self.description = ttk.Label(f, text=description, style="Muted.TLabel", justify="left")
         self.description.grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 14))
 
-        self.scale_var = tk.DoubleVar(f, value=limit.default)
+        self.scale_var = tk.DoubleVar(f, value=self.to_slider(limit.default))
         self.scale = ttk.Scale(
             f,
-            from_=limit.minimum,
-            to=limit.maximum,
+            from_=0 if limit.log_slider else limit.minimum,
+            to=LOG_STEPS if limit.log_slider else limit.maximum,
             variable=self.scale_var,
             orient="horizontal",
             command=self._on_scale,
         )
-        self.scale.grid(row=2, column=0, sticky="ew", padx=(0, 14))
-        self.value_label = ttk.Label(f, text=str(limit.default), style="Value.TLabel", width=5, anchor="e")
-        self.value_label.grid(row=2, column=1, sticky="e")
-        ttk.Label(f, text=limit.unit, style="Muted.TLabel", width=7).grid(row=2, column=2, sticky="w", padx=(4, 0))
+        widest = len(limit.display(limit.maximum))
+        if widest <= 6:  # short values sit beside the slider
+            self.scale.grid(row=3, column=0, sticky="ew", padx=(0, 14))
+            self.value_label = ttk.Label(f, style="Value.TLabel", width=max(4, widest), anchor="e")
+            self.value_label.grid(row=3, column=1, sticky="e")
+            ttk.Label(f, text=limit.unit, style="Muted.TLabel").grid(row=3, column=2, sticky="w", padx=(4, 0))
+        else:  # long values (money) get their own line so the slider keeps its width
+            self.value_label = ttk.Label(f, style="Value.TLabel", anchor="w")
+            self.value_label.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 6))
+            self.scale.grid(row=3, column=0, columnspan=3, sticky="ew")
+        self.value_label.configure(text=limit.display(limit.default))
 
         row = ttk.Frame(f, style="Card.TFrame")
-        row.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(14, 0))
+        row.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(14, 0))
         ttk.Label(row, text="Value", style="Card.TLabel").pack(side="left")
         self.entry_var = tk.StringVar(f, value=str(limit.default))
-        self.entry = ttk.Entry(row, textvariable=self.entry_var, width=8, style="Dark.TEntry", justify="right")
+        self.entry = ttk.Entry(row, textvariable=self.entry_var, width=max(8, widest), style="Dark.TEntry",
+                               justify="right")
         self.entry.pack(side="left", padx=(10, 10))
-        ttk.Label(row, text=f"Allowed {limit.describe()}", style="Muted.TLabel").pack(side="left")
         self.entry_var.trace_add("write", lambda *_: self._on_entry())
         self.entry.bind("<Return>", lambda e: self._on_entry())
         self.entry.bind("<Up>", lambda e: self._nudge(1))
         self.entry.bind("<Down>", lambda e: self._nudge(-1))
+        ttk.Label(f, text=f"Allowed {limit.describe()}", style="Muted.TLabel").grid(
+            row=5, column=0, columnspan=3, sticky="w", pady=(6, 0))
 
         self.error = ttk.Label(f, text="", style="Error.TLabel")
-        self.error.grid(row=4, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        self.error.grid(row=6, column=0, columnspan=3, sticky="w", pady=(4, 0))
         wrap_to(self.description, f, 36)
         wrap_to(self.error, f, 36)
         self._syncing = False
@@ -120,7 +132,7 @@ class ModifierCard:
         self._syncing = True
         try:
             self.enabled.set(enabled)
-            self.scale_var.set(value)
+            self.scale_var.set(self.to_slider(value))
             self.entry_var.set(str(value))
         finally:
             self._syncing = False
@@ -128,8 +140,23 @@ class ModifierCard:
         self.show_error(None)
         self.show_enabled(enabled)
 
+    # Slider position <-> value. Wide ranges use a log scale so small amounts
+    # stay reachable; dragged values are rounded to 2 significant digits.
+    def to_slider(self, value: int) -> float:
+        if not self.limit.log_slider:
+            return value
+        return math.log10(value + 1) / math.log10(self.limit.maximum + 1) * LOG_STEPS
+
+    def from_slider(self, position: float) -> int:
+        if not self.limit.log_slider:
+            return int(round(position))
+        value = round(10 ** (position / LOG_STEPS * math.log10(self.limit.maximum + 1)) - 1)
+        if value >= 100:
+            value = round(value, 2 - len(str(value)))
+        return min(self.limit.maximum, max(self.limit.minimum, value))
+
     def show_value(self, value: int) -> None:
-        self.value_label.configure(text=str(value))
+        self.value_label.configure(text=self.limit.display(value))
 
     def show_enabled(self, enabled: bool) -> None:
         self.enabled_text.configure(text="ENABLED" if enabled else "DISABLED")
@@ -142,7 +169,7 @@ class ModifierCard:
     def _on_scale(self, _raw):
         if self._syncing:
             return
-        value = int(round(self.scale_var.get()))
+        value = self.from_slider(self.scale_var.get())
         self._syncing = True
         try:
             self.entry_var.set(str(value))
@@ -160,7 +187,7 @@ class ModifierCard:
             return
         self._syncing = True
         try:
-            self.scale_var.set(value)
+            self.scale_var.set(self.to_slider(value))
         finally:
             self._syncing = False
         self.on_value(value, None)
@@ -175,7 +202,7 @@ class ModifierCard:
         return "break"
 
 
-class SpeedStrengthApp:
+class SpeedMoneyApp:
     def __init__(self, root: tk.Tk, settings: cfg.AppSettings, settings_path: Path, log_path: Path | None = None,
                  startup_warning: str | None = None):
         self.root = root
@@ -214,24 +241,23 @@ class SpeedStrengthApp:
         scroller.grid(row=0, column=0, sticky="nsew")
         page = scroller.body
         page.configure(padding=(24, 20))
-        page.columnconfigure(0, weight=1)
+        self.studs = StudBackground(page)
         self.page = page
 
-        header = ttk.Frame(page)
-        header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(0, weight=1)
+        header = card(page)
+        header.outer.grid(row=0, column=0, columnspan=2, sticky="ew")
         title = ttk.Label(header, text=APP_NAME, style="Title.TLabel")
         title.grid(row=0, column=0, sticky="w")
-        wrap_to(title, header)
+        wrap_to(title, header, 36)
         ttk.Label(
             header,
             text=f"Target game: Break and Steal an Egg (Roblox)  ·  v{__version__}",
-            style="PageMuted.TLabel",
+            style="Subtitle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 0))
 
         # Status
         status = card(page)
-        status.outer.grid(row=1, column=0, sticky="ew", pady=(18, 0))
+        status.outer.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(14, 0))
         status.columnconfigure(1, weight=1)
         self.status_dot = tk.Canvas(status, width=16, height=16, bg=CARD, highlightthickness=0)
         self.status_dot.grid(row=0, column=0, padx=(0, 10))
@@ -243,7 +269,7 @@ class SpeedStrengthApp:
 
         # Integration
         integ = card(page)
-        integ.outer.grid(row=2, column=0, sticky="ew", pady=(14, 0))
+        integ.outer.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(14, 0))
         integ.columnconfigure(0, weight=1)
         ttk.Label(integ, text="Game integration", style="H2.TLabel").grid(row=0, column=0, sticky="w")
         self.backend_keys = list(REGISTRY)
@@ -292,31 +318,29 @@ class SpeedStrengthApp:
         self.check_button.grid(row=4, column=0, sticky="w", pady=(14, 0))
 
         # Modifiers
-        self.mods = ttk.Frame(page)
-        self.mods.grid(row=3, column=0, sticky="ew", pady=(14, 0))
         self.speed = ModifierCard(
-            self.mods,
+            page,
             cfg.SPEED,
             "Player movement speed (Humanoid.WalkSpeed). Roblox default is 16.",
             lambda v, e: self._on_value("speed", v, e),
             lambda: self._on_toggle("speed"),
         )
-        self.strength = ModifierCard(
-            self.mods,
-            cfg.STRENGTH,
-            "Player Strength stat, as defined by the receiving game script.",
-            lambda v, e: self._on_value("strength", v, e),
-            lambda: self._on_toggle("strength"),
+        self.money = ModifierCard(
+            page,
+            cfg.MONEY,
+            "Player's money (Money leaderstat). Switched off, money is left unchanged.",
+            lambda v, e: self._on_value("money", v, e),
+            lambda: self._on_toggle("money"),
         )
         self._wide = None
 
         # Actions
-        actions = ttk.Frame(page)
-        actions.grid(row=4, column=0, sticky="ew", pady=(18, 0))
+        actions = card(page)
+        actions.outer.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(14, 0))
         actions.columnconfigure(0, weight=1)
-        self.notice = ttk.Label(actions, text="", style="PageMuted.TLabel", justify="left")
+        self.notice = ttk.Label(actions, text="", style="Muted.TLabel", justify="left")
         self.notice.grid(row=0, column=0, sticky="w")
-        wrap_to(self.notice, actions, 330)
+        wrap_to(self.notice, actions, 36 + 330)
         self.reset_button = ttk.Button(actions, text="Reset to Default", style="Ghost.TButton", command=self.reset)
         self.reset_button.grid(row=0, column=1, padx=(12, 10))
         self.apply_button = ttk.Button(actions, text="Apply Changes", style="Accent.TButton", command=self.apply)
@@ -325,9 +349,9 @@ class SpeedStrengthApp:
         where = f"Settings: {self.settings_path}"
         if log_path:
             where += f"\nLog: {log_path}"
-        self.footer = ttk.Label(page, text=where, style="PageMuted.TLabel", justify="left")
-        self.footer.grid(row=5, column=0, sticky="w", pady=(18, 0))
-        wrap_to(self.footer, page, 48)
+        self.footer = ttk.Label(actions, text=where, style="Muted.TLabel", justify="left")
+        self.footer.grid(row=1, column=0, columnspan=3, sticky="w", pady=(14, 0))
+        wrap_to(self.footer, actions, 36)
 
         root.bind("<Configure>", self._on_resize, add="+")
         self._relayout(root.winfo_width() if root.winfo_width() > 1 else 940)
@@ -342,23 +366,24 @@ class SpeedStrengthApp:
             return
         self._wide = wide
         self.speed.frame.outer.grid_forget()
-        self.strength.frame.outer.grid_forget()
+        self.money.frame.outer.grid_forget()
+        page = self.page
         if wide:
-            self.mods.columnconfigure(0, weight=1, uniform="mods")
-            self.mods.columnconfigure(1, weight=1, uniform="mods")
-            self.speed.frame.outer.grid(row=0, column=0, sticky="nsew", padx=(0, 7))
-            self.strength.frame.outer.grid(row=0, column=1, sticky="nsew", padx=(7, 0))
+            page.columnconfigure(0, weight=1, uniform="cols")
+            page.columnconfigure(1, weight=1, uniform="cols")
+            self.speed.frame.outer.grid(row=3, column=0, sticky="nsew", padx=(0, 7), pady=(14, 0))
+            self.money.frame.outer.grid(row=3, column=1, sticky="nsew", padx=(7, 0), pady=(14, 0))
         else:
-            self.mods.columnconfigure(0, weight=1, uniform="")
-            self.mods.columnconfigure(1, weight=0, uniform="")
-            self.speed.frame.outer.grid(row=0, column=0, sticky="ew")
-            self.strength.frame.outer.grid(row=1, column=0, sticky="ew", pady=(14, 0))
+            page.columnconfigure(0, weight=1, uniform="")
+            page.columnconfigure(1, weight=0, uniform="")
+            self.speed.frame.outer.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(14, 0))
+            self.money.frame.outer.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(14, 0))
 
     # -------------------------------------------------------------- state
     def _load_into_widgets(self):
         s = self.settings
         self.speed.set(s.speed_value, s.speed_enabled)
-        self.strength.set(s.strength_value, s.strength_enabled)
+        self.money.set(s.money_value, s.money_enabled)
         self._loading = True  # each set() would otherwise copy half-filled fields back
         try:
             self.cred_vars["universe_id"].set(s.universe_id)
@@ -369,7 +394,7 @@ class SpeedStrengthApp:
             self._loading = False
 
     def _on_value(self, kind: str, value: int | None, error: str | None):
-        widget = self.speed if kind == "speed" else self.strength
+        widget = self.speed if kind == "speed" else self.money
         if error:
             self.invalid[kind] = error
             widget.show_error(error)
@@ -381,7 +406,7 @@ class SpeedStrengthApp:
         self._refresh_buttons()
 
     def _on_toggle(self, kind: str):
-        widget = self.speed if kind == "speed" else self.strength
+        widget = self.speed if kind == "speed" else self.money
         enabled = bool(widget.enabled.get())
         setattr(self.settings, f"{kind}_enabled", enabled)
         widget.show_enabled(enabled)
@@ -449,7 +474,7 @@ class SpeedStrengthApp:
         s = self.settings
         return ModifierRequest(
             speed=s.speed_value if s.speed_enabled else None,
-            strength=s.strength_value if s.strength_enabled else None,
+            money=s.money_value if s.money_enabled else None,
         )
 
     def apply(self):
@@ -477,11 +502,11 @@ class SpeedStrengthApp:
         self.settings.reset_modifiers()
         self.invalid.clear()
         self.speed.set(self.settings.speed_value, self.settings.speed_enabled)
-        self.strength.set(self.settings.strength_value, self.settings.strength_enabled)
+        self.money.set(self.settings.money_value, self.settings.money_enabled)
         self._refresh_buttons()
         self._save()
         log.info("Modifiers reset to defaults")
-        self.notify("Speed and Strength restored to defaults. Press Apply Changes to send them.", "info")
+        self.notify("Speed and Money restored to defaults. Press Apply Changes to send them.", "info")
 
     def _start(self, state: ConnectionState, text: str, job, kind: str):
         self.busy = True

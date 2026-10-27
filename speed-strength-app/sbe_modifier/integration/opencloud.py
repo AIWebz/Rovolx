@@ -8,7 +8,7 @@ Documented endpoint (Roblox creator-docs, "Messaging usage guide"):
 
 Roblox only lets the owner of an experience create this API key, and a server
 script in that experience must subscribe to the topic and apply the values
-(see src/ServerScriptService/SpeedStrengthBridge.server.lua). An HTTP 200 proves
+(see src/ServerScriptService/SpeedMoneyBridge.server.lua). An HTTP 200 proves
 Roblox accepted the message; it does not prove a server applied it.
 """
 
@@ -34,7 +34,7 @@ DEFAULT_BASE_URL = "https://apis.roblox.com"
 BASE_URL_ENV = "SBE_OPENCLOUD_BASE_URL"
 API_KEY_ENV = "SBE_OPENCLOUD_API_KEY"
 MESSAGE_MAX_LEN = 1024  # MessagingService message size limit
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2  # v2: money replaced strength
 TIMEOUT_SECONDS = 10
 
 _HTTP_ERRORS = {
@@ -52,7 +52,7 @@ class OpenCloudIntegration(GameIntegration):
     description = (
         "Sends your settings to live servers of an experience you own through Roblox's "
         "documented Open Cloud Messaging API. Requires the owner's API key and the "
-        "SpeedStrengthBridge server script in that experience. This does not work for "
+        "SpeedMoneyBridge server script in that experience. This does not work for "
         "games owned by someone else, including the public Break and Steal an Egg."
     )
     needs_credentials = True
@@ -111,7 +111,7 @@ class OpenCloudIntegration(GameIntegration):
             payload["userId"] = int(user_id)
         if request is not None:
             payload["speed"] = request.speed
-            payload["strength"] = request.strength
+            payload["money"] = request.money
         message = json.dumps(payload, separators=(",", ":"))
         if len(message) > MESSAGE_MAX_LEN:
             raise IntegrationError("Message exceeds the 1 KiB Messaging Service limit.")
@@ -164,7 +164,7 @@ class OpenCloudIntegration(GameIntegration):
         self._publish(self.build_message("apply", user_id, request))
         return Outcome(
             ConnectionState.CONNECTED,
-            "Delivered to Roblox (HTTP 200). Live servers running SpeedStrengthBridge apply it "
+            "Delivered to Roblox (HTTP 200). Live servers running SpeedMoneyBridge apply it "
             f"to user {user_id} if they are in a server; this app cannot see in-game values."
             + self._endpoint_note(),
         )

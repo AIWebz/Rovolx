@@ -17,7 +17,7 @@ from sbe_modifier.integration.base import (
 
 REASON = (
     "Break and Steal an Egg does not provide any supported interface for outside "
-    "applications. Speed and strength are controlled by the game's Roblox servers, "
+    "applications. Speed and money are controlled by the game's Roblox servers, "
     "so nothing was changed in-game."
 )
 

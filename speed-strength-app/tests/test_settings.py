@@ -16,10 +16,21 @@ def test_speed_rejects_invalid(raw):
         cfg.parse_value(cfg.SPEED, raw)
 
 
-@pytest.mark.parametrize("raw", ["0", "1001", "-3", "ten"])
-def test_strength_rejects_invalid(raw):
+@pytest.mark.parametrize("raw", ["-1", "1000000001", "ten", "1,00", "1.000", "$5"])
+def test_money_rejects_invalid(raw):
     with pytest.raises(cfg.ValidationError):
-        cfg.parse_value(cfg.STRENGTH, raw)
+        cfg.parse_value(cfg.MONEY, raw)
+
+
+@pytest.mark.parametrize("raw, expected", [("0", 0), ("1,000,000", 1_000_000), ("1000000000", 1_000_000_000),
+                                           ("2,500", 2500)])
+def test_money_accepts_valid(raw, expected):
+    assert cfg.parse_value(cfg.MONEY, raw) == expected
+
+
+def test_money_display():
+    assert cfg.MONEY.display(2_500_000) == "$2,500,000"
+    assert cfg.SPEED.display(16) == "16"
 
 
 def test_error_message_names_range():
@@ -43,7 +54,7 @@ def test_parse_topic_limits():
 
 def test_save_load_roundtrip(tmp_path):
     path = tmp_path / "s.json"
-    original = cfg.AppSettings(speed_enabled=True, speed_value=50, strength_enabled=True, strength_value=7,
+    original = cfg.AppSettings(speed_enabled=True, speed_value=50, money_enabled=True, money_value=750_000,
                                backend=cfg.BACKEND_OPEN_CLOUD, universe_id="123", target_user_id="456")
     cfg.save(original, path)
     loaded, warning = cfg.load(path)
@@ -68,21 +79,21 @@ def test_corrupt_file_is_backed_up(tmp_path):
 
 def test_invalid_stored_values_fall_back(tmp_path):
     path = tmp_path / "s.json"
-    path.write_text(json.dumps({"speed_value": 9999, "strength_value": "x", "speed_enabled": "yes",
+    path.write_text(json.dumps({"speed_value": 9999, "money_value": "x", "speed_enabled": "yes",
                                 "backend": "hack", "topic": "", "unknown": 1}))
     loaded, _ = cfg.load(path)
     assert loaded.speed_value == cfg.SPEED.default
-    assert loaded.strength_value == cfg.STRENGTH.default
+    assert loaded.money_value == cfg.MONEY.default
     assert loaded.speed_enabled is False
     assert loaded.backend == cfg.BACKEND_UNSUPPORTED
     assert loaded.topic == cfg.DEFAULT_TOPIC
 
 
 def test_reset_keeps_connection_settings():
-    s = cfg.AppSettings(speed_enabled=True, speed_value=99, strength_enabled=True, strength_value=9,
+    s = cfg.AppSettings(speed_enabled=True, speed_value=99, money_enabled=True, money_value=9,
                         universe_id="1", target_user_id="2", backend=cfg.BACKEND_OPEN_CLOUD)
     s.reset_modifiers()
-    assert (s.speed_enabled, s.speed_value, s.strength_enabled, s.strength_value) == (False, 16, False, 1)
+    assert (s.speed_enabled, s.speed_value, s.money_enabled, s.money_value) == (False, 16, False, 0)
     assert (s.universe_id, s.target_user_id, s.backend) == ("1", "2", cfg.BACKEND_OPEN_CLOUD)
 
 
@@ -95,3 +106,10 @@ def test_empty_xdg_config_home_falls_back_to_home(monkeypatch, tmp_path):
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     monkeypatch.setattr("sys.platform", "linux")
     assert paths.data_dir() == tmp_path / ".config" / "sbe-speed-strength"
+
+
+def test_old_strength_settings_are_ignored(tmp_path):
+    path = tmp_path / "s.json"
+    path.write_text(json.dumps({"strength_enabled": True, "strength_value": 5, "speed_value": 30}))
+    loaded, _ = cfg.load(path)
+    assert loaded.speed_value == 30 and loaded.money_value == 0 and loaded.money_enabled is False

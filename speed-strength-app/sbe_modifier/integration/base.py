@@ -22,11 +22,11 @@ class ConnectionState(Enum):
 
 @dataclass(frozen=True)
 class ModifierRequest:
-    """What the user asked for. ``None`` means the modifier is disabled and
-    the game's default should be restored."""
+    """What the user asked for. ``None`` means the modifier is disabled:
+    speed returns to the game default, money is left unchanged."""
 
     speed: int | None
-    strength: int | None
+    money: int | None
 
 
 @dataclass(frozen=True)

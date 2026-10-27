@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sbe-speed-strength"
-version = "1.0.0"
-description = "Steal And Break Eggs — Speed & Strength: desktop settings app with a Roblox Open Cloud integration"
+name = "sbe-speed-money"
+version = "2.0.0"
+description = "Steal And Break Eggs — Speed & Money: desktop settings app with a Roblox Open Cloud integration"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []  # standard library only (Tkinter, urllib, json, logging)
@@ -14,7 +14,7 @@ dependencies = []  # standard library only (Tkinter, urllib, json, logging)
 dev = ["pytest==8.3.5", "pyinstaller==6.22.3"]
 
 [project.gui-scripts]
-sbe-speed-strength = "sbe_modifier.app:main"
+sbe-speed-money = "sbe_modifier.app:main"
 
 [tool.setuptools]
 packages = ["sbe_modifier", "sbe_modifier.integration"]

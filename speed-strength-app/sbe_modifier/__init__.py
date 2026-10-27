@@ -1,5 +1,5 @@
-"""Steal And Break Eggs — Speed & Strength desktop application."""
+"""Steal And Break Eggs — Speed & Money desktop application."""
 
-APP_NAME = "Steal And Break Eggs — Speed & Strength"
-APP_ID = "SBESpeedStrength"
-__version__ = "1.0.0"
+APP_NAME = "Steal And Break Eggs — Speed & Money"
+APP_ID = "SBESpeedStrength"  # settings folder name; kept so saved settings carry over
+__version__ = "2.0.0"

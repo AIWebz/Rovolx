@@ -1,4 +1,4 @@
-# Run the tests and build dist\SBESpeedStrength.exe with PyInstaller.
+# Run the tests and build dist\SBESpeedMoney.exe with PyInstaller.
 $ErrorActionPreference = "Continue"  # exit codes are checked explicitly
 Set-Location $PSScriptRoot
 function Fail($msg) { Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }
@@ -14,4 +14,4 @@ if ($LASTEXITCODE -ne 0) { Fail "tests failed; not building" }
 Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
 & $venvPy -m PyInstaller --noconfirm --distpath dist --workpath build packaging\sbe_speed_strength.spec
 if ($LASTEXITCODE -ne 0) { Fail "PyInstaller build failed" }
-Write-Host "Built: $(Join-Path $PSScriptRoot 'dist\SBESpeedStrength.exe')" -ForegroundColor Green
+Write-Host "Built: $(Join-Path $PSScriptRoot 'dist\SBESpeedMoney.exe')" -ForegroundColor Green

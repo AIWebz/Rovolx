@@ -9,7 +9,7 @@ tk = pytest.importorskip("tkinter")
 from sbe_modifier import paths  # noqa: E402
 from sbe_modifier import settings as cfg  # noqa: E402
 from sbe_modifier.integration import ConnectionState  # noqa: E402
-from sbe_modifier.ui import SpeedStrengthApp  # noqa: E402
+from sbe_modifier.ui import SpeedMoneyApp  # noqa: E402
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def make_app():
             pytest.skip(f"no display: {exc}")
         settings = settings or cfg.AppSettings()
         settings.window_geometry = size
-        app = SpeedStrengthApp(root, settings, paths.settings_file(), None, warning)
+        app = SpeedMoneyApp(root, settings, paths.settings_file(), None, warning)
         root.update()
         apps.append(app)
         return app
@@ -47,9 +47,9 @@ def drag(scale, fraction):
 
 def test_window_renders_all_controls(make_app):
     app = make_app()
-    assert app.root.title() == "Steal And Break Eggs — Speed & Strength"
-    for widget in (app.apply_button, app.reset_button, app.speed.scale, app.strength.scale, app.speed.entry,
-                   app.strength.entry, app.speed.switch, app.strength.switch, app.status_title, app.backend_box):
+    assert app.root.title() == "Steal And Break Eggs — Speed & Money"
+    for widget in (app.apply_button, app.reset_button, app.speed.scale, app.money.scale, app.speed.entry,
+                   app.money.entry, app.speed.switch, app.money.switch, app.status_title, app.backend_box):
         assert widget.winfo_ismapped(), widget
     assert app.status_title.cget("text") == ConnectionState.UNAVAILABLE.value
 
@@ -66,11 +66,35 @@ def test_slider_updates_state_entry_and_label(make_app):
 
 def test_typing_updates_state_and_slider(make_app):
     app = make_app()
-    app.strength.entry_var.set("250")
+    app.speed.entry_var.set("150")
     app.root.update()
-    assert app.settings.strength_value == 250
-    assert int(app.strength.scale_var.get()) == 250
-    assert app.strength.value_label.cget("text") == "250"
+    assert app.settings.speed_value == 150
+    assert int(app.speed.scale_var.get()) == 150
+    assert app.speed.value_label.cget("text") == "150"
+
+
+def test_money_typing_formats_and_moves_log_slider(make_app):
+    app = make_app()
+    app.money.entry_var.set("1,000,000")
+    app.root.update()
+    assert app.settings.money_value == 1_000_000
+    assert app.money.value_label.cget("text") == "$1,000,000"
+    assert app.money.from_slider(app.money.scale_var.get()) == 1_000_000
+    position = app.money.scale_var.get()
+    assert 600 < position < 700  # log scale: one million is about two thirds along
+
+
+def test_money_slider_drag_reaches_small_and_large_amounts(make_app):
+    app = make_app()
+    drag(app.money.scale, 0.0)
+    assert app.settings.money_value == 0
+    drag(app.money.scale, 1.0)
+    assert app.settings.money_value == 1_000_000_000
+    drag(app.money.scale, 0.3)
+    value = app.settings.money_value
+    assert 0 < value < 1_000_000
+    assert app.money.entry_var.get() == str(value)
+    assert app.money.value_label.cget("text") == cfg.MONEY.display(value)
 
 
 @pytest.mark.parametrize("bad", ["", "abc", "12.5", "-4", "5000"])
@@ -99,25 +123,25 @@ def test_toggles_update_state(make_app):
     # Key events go to the focused window; on Windows the test window must be
     # brought to the foreground first.
     app.root.focus_force()
-    app.strength.switch.focus_force()
+    app.money.switch.focus_force()
     app.root.update()
-    app.strength.switch.event_generate("<space>")
+    app.money.switch.event_generate("<space>")
     app.root.update()
-    assert app.settings.strength_enabled is True
+    assert app.settings.money_enabled is True
     app.speed.switch.toggle()
     assert app.settings.speed_enabled is False
     assert app.current_request().speed is None
 
 
 def test_reset_restores_defaults(make_app):
-    app = make_app(cfg.AppSettings(speed_enabled=True, speed_value=99, strength_enabled=True, strength_value=77))
-    app.strength.entry_var.set("oops")
+    app = make_app(cfg.AppSettings(speed_enabled=True, speed_value=99, money_enabled=True, money_value=77))
+    app.money.entry_var.set("oops")
     app.reset()
     app.root.update()
     s = app.settings
-    assert (s.speed_enabled, s.speed_value, s.strength_enabled, s.strength_value) == (False, 16, False, 1)
+    assert (s.speed_enabled, s.speed_value, s.money_enabled, s.money_value) == (False, 16, False, 0)
     assert app.speed.entry_var.get() == "16" and app.speed.value_label.cget("text") == "16"
-    assert app.strength.entry_var.get() == "1" and not app.strength.error.cget("text")
+    assert app.money.entry_var.get() == "0" and not app.money.error.cget("text")
     assert app.apply_button.instate(["!disabled"])
     assert "restored to defaults" in app.notice.cget("text")
 
@@ -146,13 +170,13 @@ def test_open_cloud_apply_delivers_exact_values(make_app, mock_cloud, monkeypatc
 
     app.speed.switch.toggle()
     app.speed.entry_var.set("64")
-    app.strength.entry_var.set("12")  # strength stays disabled -> null
+    app.money.entry_var.set("12")  # money stays disabled -> null (left unchanged)
     app.apply()
     assert app.state is ConnectionState.APPLYING and app.apply_button.instate(["disabled"])
     app.wait_idle()
     assert app.state is ConnectionState.CONNECTED
     sent = json.loads(mock_cloud.requests[-1]["body"]["message"])
-    assert sent == {"v": 1, "type": "apply", "userId": 777, "speed": 64, "strength": None}
+    assert sent == {"v": 2, "type": "apply", "userId": 777, "speed": 64, "money": None}
     assert app.apply_button.instate(["!disabled"])
 
 
@@ -171,7 +195,7 @@ def test_settings_persist_across_restart(make_app):
     app = make_app()
     app.speed.switch.toggle()
     app.speed.entry_var.set("88")
-    app.strength.entry_var.set("321")
+    app.money.entry_var.set("321000")
     app.cred_vars["api_key"].set("must-not-be-saved")
     app.shutdown()
     saved = paths.settings_file().read_text()
@@ -181,7 +205,7 @@ def test_settings_persist_across_restart(make_app):
     app2 = make_app(loaded)
     assert app2.settings.speed_enabled is True and app2.settings.speed_value == 88
     assert app2.speed.entry_var.get() == "88" and app2.speed.value_label.cget("text") == "88"
-    assert app2.strength.value_label.cget("text") == "321"
+    assert app2.money.value_label.cget("text") == "$321,000"
 
 
 def test_startup_warning_shown(make_app):
@@ -195,4 +219,4 @@ def test_layout_adapts_to_width(make_app):
     app.root.geometry("480x700")
     app.root.update()
     assert app._wide is False
-    assert app.speed.frame.outer.grid_info()["row"] != app.strength.frame.outer.grid_info()["row"]
+    assert app.speed.frame.outer.grid_info()["row"] != app.money.frame.outer.grid_info()["row"]

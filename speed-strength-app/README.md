@@ -1,22 +1,25 @@
-# Steal And Break Eggs — Speed & Strength
+# Steal And Break Eggs — Speed & Money
 
 A desktop app (Python + Tkinter, no third-party runtime dependencies) for setting a
-player's **Speed** and **Strength**. It has sliders, number inputs, on/off switches,
-Apply and Reset buttons, a live connection status, saved preferences and logging.
+player's **Speed** and **Money**. It has sliders, number inputs, on/off switches,
+Apply and Reset buttons, a live connection status, saved preferences and logging. The
+look is Roblox-style: a tiled blue stud baseplate, navy panels and gold buttons. The
+stud texture is drawn in code, so the app needs no image files.
 
 > **Important: what this app can and cannot do**
 >
 > * **Break and Steal an Egg (the public Roblox game by ILGames x Eggs):** this app
->   **cannot change Speed or Strength in that game.** The game has no API, mod loader
+>   **cannot change Speed or Money in that game.** The game has no API, mod loader
 >   or plugin system. Its player stats are controlled by Roblox's game servers. The
 >   only other way to change them is to inject code into the Roblox client and get
 >   past Roblox's anti-cheat. That breaks Roblox's Terms of Use, risks a ban and
->   affects other players, so this app does not do it. When this game is selected,
+>   affects other players (and, for money, the game's economy), so this app does not
+>   do it. When this game is selected,
 >   the status says **"Game functionality unavailable"** and Apply reports that
 >   nothing was changed.
-> * **A Roblox experience you own:** the app sends Speed and Strength to your live
+> * **A Roblox experience you own:** the app sends Speed and Money to your live
 >   servers through Roblox's documented **Open Cloud Messaging API**. A short server
->   script, `src/ServerScriptService/SpeedStrengthBridge.server.lua`, receives the
+>   script, `src/ServerScriptService/SpeedMoneyBridge.server.lua`, receives the
 >   message and applies the values. This needs the owner's API key and a one-time
 >   publish of the script.
 
@@ -25,7 +28,7 @@ Apply and Reset buttons, a live connection status, saved preferences and logging
 | Question | Finding |
 |---|---|
 | Platform and version | Roblox experience "Break and Steal an Egg" (listed as game 10765288803 on rotrends.com; not confirmed on roblox.com, which this environment cannot reach). It runs in the Roblox client on Windows, macOS and mobile, and the server version is updated live by the developer. |
-| How speed and strength are represented | Movement speed in Roblox is `Humanoid.WalkSpeed` (engine default 16). It is set by the game's server scripts. "Strength" is a game-specific stat that is not documented publicly and is held on the server. |
+| How speed and money are represented | Movement speed in Roblox is `Humanoid.WalkSpeed` (engine default 16). It is set by the game's server scripts. Money is a game-specific currency that is not documented publicly; it is held on the game's servers and saved by the developer's own data storage. |
 | Supported interface | **None for the public game.** Roblox offers Open Cloud APIs, but only to the experience owner (API keys are tied to the owner's universe). Messaging needs a subscriber script that only the owner can publish. |
 | OS and installation | Windows 10/11 (main target), macOS and Linux. Needs Python 3.10+ with Tkinter, or the PyInstaller executable. |
 | Limitations | Server-side stats; the client cannot be modified; anti-cheat; Open Cloud works only for experiences you own; Open Cloud's HTTP 200 confirms delivery to Roblox, not the in-game effect. |
@@ -41,8 +44,8 @@ with an empty body. Messages are limited to 1 KiB and topic names to 80 characte
 ### Windows — no Python needed (recommended)
 
 1. Open the repository's **Releases** page and choose the pre-release
-   **"Steal And Break Eggs - Speed & Strength (Windows)"** (tag `speed-strength-latest`).
-2. Download **`SBESpeedStrength.exe`** and double-click it. There is nothing to install.
+   **"Steal And Break Eggs - Speed & Money (Windows)"** (tag `speed-strength-latest`).
+2. Download **`SBESpeedMoney.exe`** and double-click it. There is nothing to install.
 3. If Windows SmartScreen says "Windows protected your PC", click **More info → Run anyway**.
    This happens because the file is not code-signed.
 
@@ -59,7 +62,7 @@ workflow also checks that the `.exe` starts on a machine with Python removed fro
    powershell -ExecutionPolicy Bypass -File setup.ps1
    ```
    Setup creates `.venv\`, installs the app, adds the Start Menu shortcut
-   **"Steal And Break Eggs - Speed & Strength"**, and runs a launch smoke test.
+   **"Steal And Break Eggs - Speed & Money"**, and runs a launch smoke test.
 3. Start it from the Start Menu or with **`run.bat`**.
 
 ### macOS / Linux
@@ -76,10 +79,10 @@ workflow also checks that the `.exe` starts on a machine with Python removed fro
 ### Standalone executable
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build.ps1   # Windows -> dist\SBESpeedStrength.exe
+powershell -ExecutionPolicy Bypass -File build.ps1   # Windows -> dist\SBESpeedMoney.exe
 ```
 ```bash
-./build.sh                                           # Linux -> dist/SBESpeedStrength, macOS -> dist/SBESpeedStrength.app
+./build.sh                                           # Linux -> dist/SBESpeedMoney, macOS -> dist/SBESpeedMoney.app
 ```
 The build script installs `requirements-dev.txt`, runs the full test suite and stops
 if any test fails. Then it runs PyInstaller using `packaging/sbe_speed_strength.spec`.
@@ -91,17 +94,19 @@ PyInstaller cannot cross-compile, so build the Windows `.exe` on Windows.
    * *Break and Steal an Egg (public game)*: the status shows **Game functionality
      unavailable**. You can still configure and save values.
    * *Roblox Open Cloud — an experience you own*: fill in **Universe ID**, **Topic**
-     (default `SBESpeedStrength`), **Target User ID** (your Roblox user ID) and **API key**.
+     (default `SBESpeedMoney`), **Target User ID** (your Roblox user ID) and **API key**.
      Press **Check Connection**. The app sends a `ping` message, and **Connected** means
      Roblox accepted the key and universe.
-2. **Speed** (0–200, default 16) and **Strength** (1–1000, default 1): drag the slider
-   or type a whole number (the Up/Down arrow keys change it by 1). The large number next
-   to the slider is the value that will be sent. Invalid input is outlined in red with
-   an explanation, and **Apply Changes** stays disabled until it is fixed.
-3. Turn each modifier on or off with its switch. When a modifier is off, Apply asks the
-   game to restore that stat's default.
+2. **Speed** (0–200, default 16) and **Money** (0–1,000,000,000, default 0): drag the
+   slider or type a whole number. Money also accepts commas (`1,000,000`). The Money
+   slider is logarithmic, so both $50 and $50,000,000 are easy to reach; dragged amounts
+   are rounded to two significant digits, and you can type exact amounts. The large gold
+   number is the value that will be sent. Invalid input is outlined in red with an
+   explanation, and **Apply Changes** stays disabled until it is fixed.
+3. Turn each modifier on or off with its switch. With Speed off, Apply restores the
+   default WalkSpeed (16). With Money off, Apply leaves the player's money unchanged.
 4. **Apply Changes** saves your settings and sends them. **Reset to Default** restores
-   Speed 16 / Strength 1 with both switches off (connection fields are kept). Reset does
+   Speed 16 / Money 0 with both switches off (connection fields are kept). Reset does
    not send anything until you press Apply.
 
 Status colours: grey = not configured, amber = configured / checking / applying,
@@ -111,7 +116,7 @@ universe-messaging-service:publish".
 
 ### Setting up an experience you own (Open Cloud)
 
-1. Copy `src/ServerScriptService/SpeedStrengthBridge.server.lua` into
+1. Copy `src/ServerScriptService/SpeedMoneyBridge.server.lua` into
    **ServerScriptService** and publish the experience. If you change `TOPIC` in the
    script, use the same topic in the app.
 2. On the Creator Dashboard, go to **Credentials → API Keys → Create**. Add
@@ -122,9 +127,14 @@ universe-messaging-service:publish".
    written to disk. To avoid typing it every time, set the environment variable
    `SBE_OPENCLOUD_API_KEY`.
 5. Join your experience, then press **Apply Changes**. The bridge sets
-   `Humanoid.WalkSpeed`, the `Speed` and `Strength` player attributes, and
-   `leaderstats.Strength` if it exists, so it works with `StatCommands.server.lua`.
-   It also clamps values on the server.
+   `Humanoid.WalkSpeed`, the `Speed` and `Money` player attributes, and
+   `leaderstats.Money` (created if missing), so it works with `StatCommands.server.lua`
+   (chat: `/speed 50`, `/money 1000`, `/reset`). It also clamps values on the server.
+   If your game keeps money elsewhere, such as a DataStore, change `setMoney` in the
+   bridge to write there.
+
+The bridge only accepts message version 2. A version-1 bridge (`SpeedStrengthBridge`)
+ignores the new messages, so republish the experience with the new script.
 
 ## Uninstall
 
@@ -143,7 +153,7 @@ application-menu entry. After that, delete the project folder.
 
 | Item | Windows | macOS | Linux |
 |---|---|---|---|
-| Settings | `%APPDATA%\SBESpeedStrength\settings.json` | `~/Library/Application Support/SBESpeedStrength/` | `~/.config/sbe-speed-strength/` |
+| Settings (folder names kept from version 1) | `%APPDATA%\SBESpeedStrength\settings.json` | `~/Library/Application Support/SBESpeedStrength/` | `~/.config/sbe-speed-strength/` |
 | Log (rotating, 3 × 1 MB) | `…\logs\app.log` | same folder `/logs` | same folder `/logs` |
 
 Set `SBE_MODIFIER_HOME` to use a different folder (portable installs, tests). Both paths
@@ -160,7 +170,7 @@ are also shown at the bottom of the window.
 | HTTP 401 / 403 | The API key is wrong, lacks `universe-messaging-service:publish`, or is not for that universe. |
 | HTTP 404 | Wrong Universe ID. |
 | HTTP 429 | Roblox rate limit. Wait a minute. |
-| Connected, but nothing changes in-game | The bridge script is not published, the topic does not match, or you are not in a live server (Studio play-test servers do not receive Open Cloud messages). Check the server output for `[SpeedStrengthBridge]` lines. |
+| Connected, but nothing changes in-game | The bridge script is not published, the topic does not match, or you are not in a live server (Studio play-test servers do not receive Open Cloud messages). Check the server output for `[SpeedMoneyBridge]` lines. |
 | "Saved settings were unreadable" | The settings file was corrupt. It was renamed to `settings.corrupt.json` and the app went back to defaults. |
 | Anything else | Run `run.bat --debug` / `./run.sh --debug` and check `app.log`. |
 
@@ -178,7 +188,7 @@ speed-strength-app/
 │   ├── settings.py         state model, validation limits, JSON persistence
 │   ├── paths.py            per-OS settings/log locations
 │   ├── ui.py               main window (talks only to GameIntegration)
-│   ├── widgets.py          dark theme, toggle switch, scroll container
+│   ├── widgets.py          Roblox stud theme (blue baseplate, gold buttons), toggle switch, scroll container
 │   └── integration/
 │       ├── base.py         GameIntegration interface, ModifierRequest, states
 │       ├── unsupported.py  Break and Steal an Egg: reports "unavailable" (no interface exists)

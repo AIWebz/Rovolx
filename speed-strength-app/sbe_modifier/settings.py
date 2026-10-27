@@ -23,21 +23,32 @@ class Limit:
     maximum: int
     default: int
     unit: str
+    #: Slider spreads values logarithmically (useful for very wide ranges).
+    log_slider: bool = False
+    #: Shown before the value, e.g. "$".
+    prefix: str = ""
+
+    def display(self, value: int) -> str:
+        return f"{self.prefix}{fmt(value)}"
 
     def describe(self) -> str:
-        return f"{self.minimum}–{self.maximum} (default {self.default})"
+        return f"{fmt(self.minimum)}–{fmt(self.maximum)} (default {fmt(self.default)})"
 
 
-# Roblox's default Humanoid.WalkSpeed is 16 studs/s. Strength has no engine
-# default; 1 matches the Strength stat created by StatCommands.server.lua.
+def fmt(value: int) -> str:
+    return f"{value:,}"
+
+
+# Roblox's default Humanoid.WalkSpeed is 16 studs/s. Money starts at 0 in the
+# Money leaderstat created by StatCommands.server.lua.
 SPEED = Limit("Speed", 0, 200, 16, "studs/s")
-STRENGTH = Limit("Strength", 1, 1000, 1, "")
+MONEY = Limit("Money", 0, 1_000_000_000, 0, "", log_slider=True, prefix="$")
 
 BACKEND_UNSUPPORTED = "break_and_steal_an_egg"
 BACKEND_OPEN_CLOUD = "open_cloud"
 BACKENDS = (BACKEND_UNSUPPORTED, BACKEND_OPEN_CLOUD)
 
-DEFAULT_TOPIC = "SBESpeedStrength"
+DEFAULT_TOPIC = "SBESpeedMoney"
 TOPIC_MAX_LEN = 80  # Roblox MessagingService topic size limit
 _ID_RE = re.compile(r"^[1-9][0-9]{0,19}$")
 
@@ -56,12 +67,14 @@ def parse_value(limit: Limit, raw) -> int:
         text = str(raw).strip()
         if not text:
             raise ValidationError(f"{limit.label} is empty. Enter a whole number {limit.describe()}.")
+        if re.fullmatch(r"[0-9]{1,3}(,[0-9]{3})+", text):  # thousands separators, e.g. 1,000,000
+            text = text.replace(",", "")
         if not re.fullmatch(r"[+-]?[0-9]+", text):
             raise ValidationError(f"{limit.label} must be a whole number, got {text!r}.")
         value = int(text)
     if not limit.minimum <= value <= limit.maximum:
         raise ValidationError(
-            f"{limit.label} {value} is out of range. Allowed: {limit.minimum}–{limit.maximum}."
+            f"{limit.label} {fmt(value)} is out of range. Allowed: {fmt(limit.minimum)}–{fmt(limit.maximum)}."
         )
     return value
 
@@ -86,8 +99,8 @@ def parse_topic(raw) -> str:
 class AppSettings:
     speed_enabled: bool = False
     speed_value: int = SPEED.default
-    strength_enabled: bool = False
-    strength_value: int = STRENGTH.default
+    money_enabled: bool = False
+    money_value: int = MONEY.default
     backend: str = BACKEND_UNSUPPORTED
     universe_id: str = ""
     topic: str = DEFAULT_TOPIC
@@ -95,11 +108,11 @@ class AppSettings:
     window_geometry: str = ""
 
     def reset_modifiers(self) -> None:
-        """Restore Speed and Strength to defaults; connection settings are kept."""
+        """Restore Speed and Money to defaults; connection settings are kept."""
         self.speed_enabled = False
         self.speed_value = SPEED.default
-        self.strength_enabled = False
-        self.strength_value = STRENGTH.default
+        self.money_enabled = False
+        self.money_value = MONEY.default
 
     @classmethod
     def from_dict(cls, data: dict) -> "AppSettings":
@@ -113,7 +126,7 @@ class AppSettings:
         defaults = cls()
         checks = {
             "speed_value": lambda v: parse_value(SPEED, v),
-            "strength_value": lambda v: parse_value(STRENGTH, v),
+            "money_value": lambda v: parse_value(MONEY, v),
             "topic": parse_topic,
         }
         for name, check in checks.items():
@@ -122,7 +135,7 @@ class AppSettings:
             except (ValidationError, TypeError):
                 log.warning("Stored %s is invalid; using default", name)
                 setattr(settings, name, getattr(defaults, name))
-        for name in ("speed_enabled", "strength_enabled"):
+        for name in ("speed_enabled", "money_enabled"):
             if not isinstance(getattr(settings, name), bool):
                 setattr(settings, name, getattr(defaults, name))
         for name in ("universe_id", "target_user_id", "window_geometry"):

@@ -17,9 +17,9 @@ exe = EXE(
     a.scripts,
     a.binaries,
     a.datas,
-    name="SBESpeedStrength",
+    name="SBESpeedMoney",
     console=False,
     upx=False,
 )
 if sys.platform == "darwin":
-    app = BUNDLE(exe, name="SBESpeedStrength.app", bundle_identifier="com.sbe.speedstrength")
+    app = BUNDLE(exe, name="SBESpeedMoney.app", bundle_identifier="com.sbe.speedmoney")

@@ -1,12 +1,12 @@
--- StatCommands: chat commands to set your own Speed and Strength in YOUR game.
+-- StatCommands: chat commands to set your own Speed and Money in YOUR game.
 -- Put this Script in ServerScriptService.
 --
 -- Commands (type in chat):
 --   /speed <number>      sets your WalkSpeed (default 16)
---   /strength <number>   sets your Strength stat (shown on the leaderboard)
+--   /money <number>      sets your Money (shown on the leaderboard)
 --   /reset               restores defaults
 --
--- Other scripts can read strength with: player:GetAttribute("Strength")
+-- Other scripts can read money with: player:GetAttribute("Money")
 
 local Players = game:GetService("Players")
 
@@ -18,8 +18,9 @@ local ADMINS = {
 local ALLOW_EVERYONE = false
 
 local DEFAULT_SPEED = 16
-local DEFAULT_STRENGTH = 1
-local MAX_VALUE = 1e6
+local DEFAULT_MONEY = 0
+local MAX_SPEED = 200
+local MAX_MONEY = 1000000000
 
 local function isAdmin(player)
 	if ALLOW_EVERYONE or player.UserId == game.CreatorId then
@@ -40,9 +41,9 @@ local function applySpeed(player)
 	end
 end
 
-local function setStrength(player, value)
-	player:SetAttribute("Strength", value)
-	player.leaderstats.Strength.Value = value
+local function setMoney(player, value)
+	player:SetAttribute("Money", value)
+	player.leaderstats.Money.Value = value
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -50,12 +51,12 @@ Players.PlayerAdded:Connect(function(player)
 	leaderstats.Name = "leaderstats"
 	leaderstats.Parent = player
 
-	local strength = Instance.new("NumberValue")
-	strength.Name = "Strength"
-	strength.Parent = leaderstats
+	local money = Instance.new("IntValue")
+	money.Name = "Money"
+	money.Parent = leaderstats
 
 	player:SetAttribute("Speed", DEFAULT_SPEED)
-	setStrength(player, DEFAULT_STRENGTH)
+	setMoney(player, DEFAULT_MONEY)
 
 	player.CharacterAdded:Connect(function(character)
 		character:WaitForChild("Humanoid")
@@ -69,19 +70,16 @@ Players.PlayerAdded:Connect(function(player)
 
 		local command, arg = message:lower():match("^/(%a+)%s*(%S*)")
 		local value = tonumber(arg)
-		if value then
-			value = math.clamp(value, 0, MAX_VALUE)
-		end
 
 		if command == "speed" and value then
-			player:SetAttribute("Speed", value)
+			player:SetAttribute("Speed", math.clamp(value, 0, MAX_SPEED))
 			applySpeed(player)
-		elseif command == "strength" and value then
-			setStrength(player, value)
+		elseif command == "money" and value then
+			setMoney(player, math.clamp(math.floor(value), 0, MAX_MONEY))
 		elseif command == "reset" then
 			player:SetAttribute("Speed", DEFAULT_SPEED)
 			applySpeed(player)
-			setStrength(player, DEFAULT_STRENGTH)
+			setMoney(player, DEFAULT_MONEY)
 		end
 	end)
 end)

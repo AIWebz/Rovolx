@@ -40,7 +40,7 @@ if [ "$(uname)" = "Linux" ]; then
   cat > "$apps/sbe-speed-strength.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
-Name=Steal And Break Eggs — Speed & Strength
+Name=Steal And Break Eggs — Speed & Money
 Exec="$APP_DIR/run.sh"
 Terminal=false
 Categories=Game;Utility;
