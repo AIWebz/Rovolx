@@ -3,13 +3,16 @@
 import argparse
 import logging
 import logging.handlers
+import os
 import signal
 import sys
+import threading
 
 from sbe_modifier import APP_NAME, __version__, paths
 from sbe_modifier import settings as cfg
 
 log = logging.getLogger("sbe_modifier")
+SMOKE_TIMEOUT = 60
 
 
 def setup_logging(debug: bool = False):
@@ -38,6 +41,16 @@ def main(argv=None) -> int:
 
     log_path = setup_logging(args.debug)
     log.info("Starting %s %s (Python %s, %s)", APP_NAME, __version__, sys.version.split()[0], sys.platform)
+    if args.smoke_test:
+        # An install check must never hang (e.g. a window that never maps on a
+        # headless machine): fail after SMOKE_TIMEOUT seconds instead.
+        def give_up():
+            log.error("SMOKE TEST FAILED - no window after %ss", SMOKE_TIMEOUT)
+            print("SMOKE TEST FAILED - timed out", flush=True)
+            logging.shutdown()
+            os._exit(4)
+
+        threading.Timer(SMOKE_TIMEOUT, give_up).start()
 
     try:
         import tkinter as tk
@@ -65,7 +78,8 @@ def main(argv=None) -> int:
         print(result)  # no console in the windowed .exe, so it is logged as well
         log.info(result)
         app.shutdown()
-        return 0 if ok else 1
+        logging.shutdown()
+        os._exit(0 if ok else 1)  # skip waiting for the watchdog thread
 
     # Save settings on SIGTERM/Ctrl+C too. The UI's poll loop gives Python a
     # chance to run the handler while Tk's mainloop is waiting.

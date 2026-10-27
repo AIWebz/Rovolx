@@ -16,6 +16,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: pwsh
@@ -28,12 +29,15 @@ jobs:
           python-version: "3.12"
 
       - name: Install with setup.ps1 (Windows PowerShell 5.1, as users run it)
+        timeout-minutes: 10
         run: powershell -NoProfile -ExecutionPolicy Bypass -File setup.ps1 -Dev; if ($LASTEXITCODE) { exit 1 }
 
       - name: Test and build with build.ps1
+        timeout-minutes: 15
         run: powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1; if ($LASTEXITCODE) { exit 1 }
 
       - name: Smoke-test the .exe with Python removed from PATH
+        timeout-minutes: 5
         run: |
           $env:PATH = "C:\Windows\System32;C:\Windows"
           $env:SBE_MODIFIER_HOME = "$env:RUNNER_TEMP\exe-home"
