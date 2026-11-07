@@ -34,6 +34,11 @@ local function isAdmin(player)
 end
 
 local function applySpeed(player)
+	-- Only override WalkSpeed after an admin used /speed; otherwise the game's
+	-- Running Shoes upgrade controls speed.
+	if not player:GetAttribute("SpeedOverride") then
+		return
+	end
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.WalkSpeed = player:GetAttribute("Speed")
@@ -42,13 +47,20 @@ end
 
 local function setStrength(player, value)
 	player:SetAttribute("Strength", value)
-	player.leaderstats.Strength.Value = value
+	local strength = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Strength")
+	if strength then
+		strength.Value = value
+	end
 end
 
 Players.PlayerAdded:Connect(function(player)
-	local leaderstats = Instance.new("Folder")
-	leaderstats.Name = "leaderstats"
-	leaderstats.Parent = player
+	-- Share the leaderstats folder with the game's DataService (Cash / Scraps).
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if not leaderstats then
+		leaderstats = Instance.new("Folder")
+		leaderstats.Name = "leaderstats"
+		leaderstats.Parent = player
+	end
 
 	local strength = Instance.new("NumberValue")
 	strength.Name = "Strength"
@@ -75,11 +87,13 @@ Players.PlayerAdded:Connect(function(player)
 
 		if command == "speed" and value then
 			player:SetAttribute("Speed", value)
+			player:SetAttribute("SpeedOverride", true)
 			applySpeed(player)
 		elseif command == "strength" and value then
 			setStrength(player, value)
 		elseif command == "reset" then
 			player:SetAttribute("Speed", DEFAULT_SPEED)
+			player:SetAttribute("SpeedOverride", nil)
 			applySpeed(player)
 			setStrength(player, DEFAULT_STRENGTH)
 		end

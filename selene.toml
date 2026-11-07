@@ -1,0 +1,4 @@
+std = "rbx"
+[lints]
+shadowing = "allow"
+unused_variable = "allow"
